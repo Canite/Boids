@@ -14,38 +14,36 @@ FPS = 60
 MAX_OBJECTS = 50
 MAX_LEVELS = 8
 SEP_WEIGHT = 0.005
-SEP_DIST = 30
-ALI_DIST = 30
-COH_DIST = 30
+SEP_DIST = 5
+OTHER_DIST = 60
+
 
 class Boid:
     def __init__(self, startx, starty, radius):
-        #Based on angle = 0 and speed = 1...
-        self.xVector = 1
+        self.direction = random.randrange(0, 360) * 180 / math.pi
+        self.speed = 1
 
-        self.yVector = 0
+        self.xVector = self.speed * math.cos(self.direction)
+        self.yVector = self.speed * math.sin(self.direction)
         self.x = startx
         self.y = starty
-        self.direction = 0
-        self.speed = 1
+
         self.radius = radius
 
     def update(self, boidList):
         #self.direction += random.randrange(-2, 3)
         #Make list of close boids.
         sepBoids = []
-        aliBoids = []
-        cohBoids = []
+        otherBoids = []
 
         for boid in boidList:
             dist = self.distance(boid.x, self.x, boid.y, self.y)
             if dist < SEP_DIST:
                 sepBoids.append(boid)
             if dist < ALI_DIST:
-                aliBoids.append(boid)
-            if dist < COH_DIST:
-                cohBoids.append(boid)
+                otherBoids.append(boid)
 
+        # Compute separation value.
         xSep, ySep = self.separation(sepBoids)
 
         self.xVector += xSep
