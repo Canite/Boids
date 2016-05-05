@@ -11,7 +11,8 @@ SCREEN_HEIGHT = 720
 CAMERA_WIDTH = SCREEN_WIDTH
 CAMERA_HEIGHT = SCREEN_HEIGHT
 FPS = 60
-
+MAX_OBJECTS = 50
+MAX_LEVELS = 8
 SEP_WEIGHT = 0.005
 SEP_DIST = 30
 ALI_DIST = 30
@@ -35,7 +36,7 @@ class Boid:
         sepBoids = []
         aliBoids = []
         cohBoids = []
-        
+
         for boid in boidList:
             dist = self.distance(boid.x, self.x, boid.y, self.y)
             if dist < SEP_DIST:
@@ -44,7 +45,7 @@ class Boid:
                 aliBoids.append(boid)
             if dist < COH_DIST:
                 cohBoids.append(boid)
-            
+
         xSep, ySep = self.separation(sepBoids)
 
         self.xVector += xSep
@@ -55,7 +56,6 @@ class Boid:
         self.x += self.xVector
         self.y += self.yVector
 
-        #Update direction.
         if self.x < 0:
             self.x = SCREEN_WIDTH
         if self.x > SCREEN_WIDTH:
@@ -87,17 +87,78 @@ class Boid:
         pygame.draw.circle(surface, (255, 255, 255), (int(self.x), int(self.y)), self.radius, 1)
 
 class QuadTree():
-    def __init__(self, width, height, x, y, maxObjects, maxLevel):
+    def __init__(self, width, height, x, y, level):
         self.objects = []
         self.x = x
         self.y = y
         self.w = width
         self.h = height
+        self.level = level
         self.nodes = []
 
-    def clear():
-        objects = []
-        #for node in self.nodes:
+    def clear(self):
+        self.objects = []
+        for node in self.nodes:
+            node.clear()
+
+    def split(self):
+        x = self.x
+        y = self.y
+        w = self.w / 2
+        h = self.h / 2
+        self.nodes.append(QuadTree(x, y, w, h, self.level + 1))
+        self.nodes.append(QuadTree(x + w, y, w, h, self.level + 1))
+        self.nodes.append(QuadTree(x, y + h, w, h, self.level + 1))
+        self.nodes.append(QuadTree(x + w, y + h, w, h, self.level + 1))
+
+    def getIndex(self, x, y):
+        verticalMidpoint = self.x + (self.w / 2)
+        horizontalMidpoint = self.y + (self.h / 2)
+
+        topQuad = y < horizontalMidpoint
+        botQuad = y > horizontalMidpoint
+        leftQuad = x < verticalMidpoint
+        rightQuad = x > verticalMidpoint
+
+        index = -1
+        if (topQuad and rightQuad):
+            index = 0
+        elif (topQuad and leftQuad):
+            index = 1
+        elif (botQuad and leftQuad):
+            index = 2
+        elif (botQuad and rightQuad):
+            index = 3
+
+        return index
+
+    def insert(self, boid):
+        if (self.nodes != []):
+            index = self.getIndex(boid.x, boid.y)
+            if (index != -1):
+                self.nodes[index].insert(boid)
+                return
+
+        objects.append(boid)
+        if (len(object) > MAX_OBJECTS and self.level < MAX_LEVELS):
+            if (self.nodes == []):
+                split()
+
+            i = 0
+            while (i < len(objects)):
+                index = self.getIndex(objects[i].x, objects[i].y)
+                if (index != -1):
+                    self.nodes[index].insert(objects.pop(i))
+                else:
+                    i += 1
+
+    def retrieve(self, boids, x, y):
+        index = self.getIndex(x,y)
+        if (index != -1 and self.nodes != []):
+            self.nodes[index].retrieve(boids, x, y)
+
+        boids += self.objects
+        return boids
 
 class World:
     def __init__(self, surface, width, height):
@@ -105,10 +166,12 @@ class World:
         self.w = width
         self.h = height
         self.boids = []
+        self.tree = QuadTree(self.w, self.h, 0, 0, 0)
 
     def update(self):
         for boid in self.boids:
-            boid.update(self.boids)
+            neighbors = self.tree.retrieve([], boid.x, boid.y)
+            boid.update(neighbors)
 
     def draw(self):
         self.surface.fill((0,0,0))
@@ -124,8 +187,9 @@ def main():
     pygame.display.set_caption("Boids")
 
     world = World(GAMESURFACE, SCREEN_WIDTH, SCREEN_HEIGHT)
-    for x in range(0, 1280, 120):
-        for y in range(0, 720, 120):
+
+    for x in range(0, 1280, 12):
+        for y in range(0, 720, 12):
             world.boids.append(Boid(x,y,1))
 
     print(len(world.boids))
@@ -142,7 +206,7 @@ def main():
 
         WINDOWSURFACE.blit(world.surface, (0,0))
 
-        #print FPSCLOCK.get_fps()
+        print(FPSCLOCK.get_fps())
         pygame.display.flip()
         FPSCLOCK.tick(FPS)
 
